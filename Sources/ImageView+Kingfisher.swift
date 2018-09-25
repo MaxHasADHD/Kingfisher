@@ -142,6 +142,37 @@ extension Kingfisher where Base: ImageView {
         
         return task
     }
+
+    public func setImage(_ image: Image,
+                         placeholder: Placeholder? = nil,
+                         options: KingfisherOptionsInfo? = nil,
+                         completionHandler: CompletionHandler? = nil) {
+        let options = KingfisherManager.shared.defaultOptions + (options ?? KingfisherEmptyOptionsInfo)
+
+        guard let transitionItem = options.lastMatchIgnoringAssociatedValue(.transition(.none)),
+            case .transition(let transition) = transitionItem,
+            options.forceTransition else {
+                self.placeholder = nil
+                base.image = image
+                completionHandler?(image, nil, .none, nil)
+                return
+        }
+
+        #if !os(macOS)
+        self.placeholder = nil
+        UIView.transition(with: base, duration: transition.duration,
+                          options: [transition.animationOptions, .allowUserInteraction],
+                          animations: { [weak base] in
+                            guard let strongBase = base else { return }
+                            // Set image property in the animation.
+                            transition.animations?(strongBase, image)
+            },
+                          completion: { finished in
+                            transition.completion?(finished)
+                            completionHandler?(image, nil, .none, nil)
+        })
+        #endif
+    }
     
     /**
      Cancel the image download task bounded to the image view if it is running.
